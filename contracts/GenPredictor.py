@@ -117,6 +117,7 @@ class GenPredictor(gl.Contract):
             pool_below=u256(0),
             total_pool=u256(0),
             platform_fee=u256(0),
+            fee_accounted=False,
             analysis="",
         ))
         return market_id
@@ -255,6 +256,16 @@ Requirements:
         self.markets[market_id] = market
         _Recipient(Address(user)).emit_transfer(value=payout, on="finalized")
         return payout
+
+    @gl.public.write
+    def withdraw_platform_fees(self) -> u256:
+        self._only_admin()
+        amount = self.platform_fees
+        if amount == u256(0):
+            raise gl.vm.UserError("No platform fees to withdraw.")
+        self.platform_fees = u256(0)
+        _Recipient(Address(str(self.admin))).emit_transfer(value=amount, on="finalized")
+        return amount
 
     @gl.public.view
     def get_market(self, market_id: u32) -> dict:
