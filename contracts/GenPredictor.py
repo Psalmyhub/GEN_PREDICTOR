@@ -196,16 +196,25 @@ Requirements:
             return gl.nondet.exec_prompt(prompt)
 
         def validator_fn(proposed) -> bool:
-            if isinstance(proposed, Exception):
-                return False
+            # Validators independently re-read the evidence and compare key fields.
             try:
-                data = json.loads(str(proposed))
-                if data.get("valid_source") is not True:
+                if isinstance(proposed, Exception):
                     return False
-                if str(data.get("symbol", "")).upper() != symbol.upper():
+                candidate_raw = proposed.calldata if isinstance(proposed, gl.vm.Return) else str(proposed)
+                candidate = json.loads(candidate_raw)
+                independent = json.loads(leader_fn())
+                if candidate.get("valid_source") is not True or independent.get("valid_source") is not True:
                     return False
-                price = float(data.get("observed_price", 0))
-                return price > 0 and price < 1e18 and bool(data.get("observation_time"))
+                if str(candidate.get("symbol", "")).upper() != symbol.upper():
+                    return False
+                if str(independent.get("symbol", "")).upper() != symbol.upper():
+                    return False
+                candidate_price = float(candidate.get("observed_price", 0))
+                independent_price = float(independent.get("observed_price", 0))
+                if candidate_price <= 0 or independent_price <= 0:
+                    return False
+                # Permit tiny rendering variation, but reject materially different prices.
+                return abs(candidate_price - independent_price) / max(candidate_price, independent_price) <= 0.001
             except Exception:
                 return False
 
