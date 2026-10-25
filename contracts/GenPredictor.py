@@ -39,6 +39,7 @@ class Market:
     pool_below: u256
     total_pool: u256
     platform_fee: u256
+    fee_accounted: bool
     analysis: str
 
 
@@ -247,10 +248,12 @@ Requirements:
         distributable = market.total_pool - fee
         payout = distributable * winning_stake // total_winning
         self.claimed[claim_key] = True
-        market.platform_fee = fee
-        self.platform_fees = self.platform_fees + fee
+        if not market.fee_accounted:
+            market.platform_fee = fee
+            market.fee_accounted = True
+            self.platform_fees = self.platform_fees + fee
         self.markets[market_id] = market
-        _Recipient(Address(user)).emit_transfer(value=payout)
+        _Recipient(Address(user)).emit_transfer(value=payout, on="finalized")
         return payout
 
     @gl.public.view
